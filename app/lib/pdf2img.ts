@@ -13,8 +13,7 @@ async function loadPdfJs(): Promise<any> {
     if (loadPromise) return loadPromise;
 
     isLoading = true;
-    // @ts-expect-error - pdfjs-dist/build/pdf.mjs is not a module
-    loadPromise = import("pdfjs-dist/build/pdf.mjs").then((lib) => {
+    loadPromise = import("pdfjs-dist").then((lib) => {
         // Set the worker source to use local file
         lib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
         pdfjsLib = lib;
@@ -32,7 +31,8 @@ export async function convertPdfToImage(
         const lib = await loadPdfJs();
 
         const arrayBuffer = await file.arrayBuffer();
-        const pdf = await lib.getDocument({ data: arrayBuffer }).promise;
+        const loadingTask = lib.getDocument({ data: arrayBuffer });
+        const pdf = await loadingTask.promise;
         const page = await pdf.getPage(1);
 
         const viewport = page.getViewport({ scale: 4 });
@@ -76,10 +76,19 @@ export async function convertPdfToImage(
             ); // Set quality to maximum (1.0)
         });
     } catch (err) {
+        console.error("PDF conversion error:", err);
+        let errorMessage = "Failed to convert PDF to image";
+        
+        if (err instanceof Error) {
+            errorMessage = `PDF conversion failed: ${err.message}`;
+        } else if (typeof err === 'string') {
+            errorMessage = `PDF conversion failed: ${err}`;
+        }
+        
         return {
             imageUrl: "",
             file: null,
-            error: `Failed to convert PDF: ${err}`,
+            error: errorMessage,
         };
     }
 }
